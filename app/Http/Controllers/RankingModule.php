@@ -8,31 +8,21 @@ use Redis;
 
 class RankingModule extends Controller
 {
-    //
     public function increment_view_ranking($id){
-        $key = "ranking-"."id:".$id;
+        Redis::zincrby("ranking/".date("Y-m-d"), 1, $id);
+    }
 
-        $value = Redis::get($key);
-        if(empty($value)){
-            Redis::set($key, "1");
-            Redis::expire($key, 60*60);  
-        } else {
-            Redis::set($key,$value + 1);
-        }
-        echo "view count:".Redis::get($key);
-    }
 	public function get_ranking_all(){
-        $keys = Redis::keys('ranking-*');
-        $results = Array();
-        
-        if(empty($keys) != true){
-            for($i=0; $i < sizeof($keys); $i++){
-                $point = Redis::get($keys[$i]);
-                $id = explode(':', $keys[$i])[1];
-                $results[$id] = $point;
-            }
-            arsort($results, SORT_NUMERIC);
+        $dates = array();
+        $keys = array();
+        for ($i=0; $i <= 6; $i++){
+            array_push($dates, date('Y-m-d', strtotime('-'.$i.' day', time())));
         }
-        return $results;
+        foreach ($dates as $date) {
+            array_push($keys, "ranking/{$date}");
+        }
+        Redis::zunionstore("ranking/weekly", $keys);
+        return Redis::zrevrange("ranking/weekly", 0, -1, "withscores");
     }
+
 }
